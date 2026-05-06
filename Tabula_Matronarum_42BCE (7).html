@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tabula Matronarum · The Social Web of 42 BCE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        body,html{height:100%;overflow:hidden;font-family:'Cormorant Garamond',serif;background:#ece7dc;color:#3a3228}
+        #network-container{width:100%;height:100vh;background:
+            repeating-linear-gradient(52deg,transparent 0px,transparent 1px,rgba(175,165,148,.07) 1px,rgba(175,165,148,.07) 2.5px,transparent 2.5px,transparent 6px),
+            repeating-linear-gradient(-25deg,transparent 0px,transparent 2px,rgba(160,150,130,.05) 2px,rgba(160,150,130,.05) 3.5px,transparent 3.5px,transparent 8px),
+            repeating-linear-gradient(110deg,transparent 0px,transparent 3px,rgba(185,175,155,.04) 3px,rgba(185,175,155,.04) 5px,transparent 5px,transparent 12px),
+            radial-gradient(ellipse at 15% 25%,rgba(190,182,168,.45) 0%,transparent 35%),
+            radial-gradient(ellipse at 85% 15%,rgba(178,170,155,.35) 0%,transparent 30%),
+            radial-gradient(ellipse at 55% 65%,rgba(195,188,174,.4) 0%,transparent 40%),
+            radial-gradient(ellipse at 30% 80%,rgba(182,174,158,.3) 0%,transparent 28%),
+            radial-gradient(ellipse at 75% 50%,rgba(200,192,176,.25) 0%,transparent 32%),
+            radial-gradient(ellipse at 10% 60%,rgba(170,162,148,.2) 0%,transparent 25%),
+            linear-gradient(160deg,#eee9df 0%,#e6e0d3 12%,#ece6da 22%,#e3ddd0 35%,#eae4d7 45%,#e0dacf 58%,#e8e2d6 68%,#e4ded2 80%,#ebe5d9 90%,#e7e1d5 100%)}
+        #marble-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;opacity:.55}
+        #header{position:absolute;top:0;left:0;right:0;z-index:50;text-align:center;padding:16px 20px 12px;background:linear-gradient(180deg,rgba(238,233,223,.97) 0%,rgba(238,233,223,.8) 60%,transparent 100%);pointer-events:none}
+        #header h1{font-family:'Cinzel',serif;font-weight:700;font-size:1.5em;letter-spacing:6px;text-transform:uppercase;color:#7a1a1a;text-shadow:0 1px 2px rgba(0,0,0,.08)}
+        #header .subtitle{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:.95em;color:#8a7e6a;margin-top:2px;letter-spacing:2px}
+        #legend{position:absolute;bottom:24px;left:24px;z-index:50;background:rgba(255,252,245,.94);border:1px solid rgba(160,140,110,.35);padding:16px 20px;backdrop-filter:blur(6px);font-size:.88em;line-height:1.8;max-width:260px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+        #legend .leg-title{font-family:'Cinzel',serif;font-weight:700;color:#7a1a1a;letter-spacing:3px;font-size:.8em;margin-bottom:6px;text-transform:uppercase}
+        .leg-row{display:flex;align-items:center;gap:8px}.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}.leg-label{color:#5a5040;font-size:.92em}
+        #legend hr{border:0;border-top:1px solid rgba(160,140,110,.25);margin:8px 0}#legend small{color:#8a7e6a;font-style:italic}
+        #filter-panel{position:absolute;top:76px;left:24px;z-index:50;display:flex;flex-direction:column;gap:4px;width:224px}
+        .filter-section-label{font-family:'Cinzel',serif;font-size:.58em;letter-spacing:2px;text-transform:uppercase;color:#8a7e6a;margin-top:6px;padding-left:2px}
+        .filter-btn{font-family:'Cinzel',serif;font-size:.6em;letter-spacing:1.5px;text-transform:uppercase;border:1px solid;padding:5px 12px;cursor:pointer;transition:all .2s;background:rgba(255,252,245,.88);backdrop-filter:blur(4px);box-shadow:0 1px 4px rgba(0,0,0,.05);text-align:left;width:100%}
+        .filter-btn:hover{transform:translateX(2px)}.filter-btn.active{font-weight:700}
+        .btn-all{color:#7a1a1a;border-color:rgba(122,26,26,.3)}.btn-all.active{background:rgba(122,26,26,.1)}
+        .btn-triumviral{color:#8b2020;border-color:rgba(139,32,32,.3)}.btn-triumviral.active{background:rgba(139,32,32,.1)}
+        .btn-senatorial{color:#1a4470;border-color:rgba(26,68,112,.3)}.btn-senatorial.active{background:rgba(26,68,112,.1)}
+        .btn-independent{color:#1e5d3a;border-color:rgba(30,93,58,.3)}.btn-independent.active{background:rgba(30,93,58,.1)}
+        .btn-group{color:#5a4030;border-color:rgba(90,64,48,.25)}.btn-group.active{background:rgba(90,64,48,.1);font-weight:700}
+        .btn-wars{color:#6a4020;border-color:rgba(106,64,32,.3)}.btn-wars.active{background:rgba(106,64,32,.1);font-weight:700}
+        #filter-scroll{max-height:calc(100vh - 120px);overflow-y:auto;display:flex;flex-direction:column;gap:4px;padding-right:4px}
+        #filter-scroll::-webkit-scrollbar{width:3px}#filter-scroll::-webkit-scrollbar-thumb{background:rgba(160,140,110,.3)}
+        #details-panel{position:absolute;top:0;right:0;width:420px;height:100%;background:linear-gradient(135deg,#fffcf5,#f8f4eb);border-left:3px solid #b3913e;padding:50px 28px 28px;display:none;z-index:100;overflow-y:auto;box-shadow:-8px 0 30px rgba(0,0,0,.1)}
+        #details-panel::-webkit-scrollbar{width:4px}#details-panel::-webkit-scrollbar-thumb{background:rgba(160,140,110,.3)}
+        .close-btn{position:absolute;top:14px;right:18px;cursor:pointer;font-size:28px;color:#7a1a1a;opacity:.5;transition:opacity .2s;font-family:serif}.close-btn:hover{opacity:1}
+        #name-label{font-family:'Cinzel',serif;font-weight:700;color:#7a1a1a;font-size:1.5em;letter-spacing:3px;text-align:center;border-bottom:2px solid rgba(160,140,110,.3);padding-bottom:14px;margin-bottom:20px}
+        #role-label{font-style:italic;color:#8a7e6a;text-align:center;margin-top:-14px;margin-bottom:18px;font-size:1em}
+        .stat-line{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-bottom:1px solid rgba(160,140,110,.15)}
+        .stat-label{font-family:'Cinzel',serif;font-weight:600;color:#8a7e6a;font-size:.7em;letter-spacing:2px;text-transform:uppercase}
+        .stat-val{color:#3a3228;font-size:1.05em}
+        .bio-box{margin-top:20px;line-height:1.65;color:#5a5040;font-size:1.02em;font-style:italic;background:rgba(160,140,110,.06);padding:18px;border-left:2px solid rgba(160,140,110,.25)}
+        .connections-list{margin-top:16px}.connections-list h3{font-family:'Cinzel',serif;font-size:.72em;letter-spacing:2px;color:#8a7e6a;text-transform:uppercase;margin-bottom:8px}
+        .conn-item{font-size:.92em;color:#6a5e4e;padding:3px 0}.conn-item span{color:#3a3228;font-weight:600}
+        .faction-badge{display:inline-block;padding:3px 12px;font-family:'Cinzel',serif;font-size:.65em;letter-spacing:2px;text-transform:uppercase;border:1px solid;margin:0 auto;text-align:center}
+        .faction-triumviral{color:#8b2020;border-color:rgba(139,32,32,.4);background:rgba(139,32,32,.06)}
+        .faction-senatorial{color:#1a4470;border-color:rgba(26,68,112,.4);background:rgba(26,68,112,.06)}
+        .faction-independent{color:#1e5d3a;border-color:rgba(30,93,58,.4);background:rgba(30,93,58,.06)}
+        .vis-tooltip{font-family:'Cormorant Garamond',serif!important;background:rgba(255,252,245,.97)!important;color:#3a3228!important;border:1px solid rgba(160,140,110,.4)!important;padding:8px 14px!important;font-size:14px!important;border-radius:0!important;box-shadow:0 4px 16px rgba(0,0,0,.1)!important}
+    </style>
+</head>
+<body>
+<div id="header"><h1>Tabula Matronarum</h1><div class="subtitle">The Social Web of the Consulship of Lepidus &amp; Plancus · DCCXII A.U.C.</div></div>
+<div id="network-container"></div>
+<svg id="marble-overlay" xmlns="http://www.w3.org/2000/svg">
+    <filter id="n1"><feTurbulence type="fractalNoise" baseFrequency="0.5" numOctaves="5" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
+    <filter id="n2"><feTurbulence type="fractalNoise" baseFrequency="0.15" numOctaves="3" seed="5" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
+    <rect width="100%" height="100%" filter="url(#n1)" opacity="0.07"/><rect width="100%" height="100%" filter="url(#n2)" opacity="0.05"/>
+</svg>
+<div id="filter-panel"><div id="filter-scroll">
+    <div class="filter-section-label">Factiones</div>
+    <button class="filter-btn btn-all active" onclick="applyFilter('faction','all')">All Women</button>
+    <button class="filter-btn btn-triumviral" onclick="applyFilter('faction','Triumviral')">Triumviral</button>
+    <button class="filter-btn btn-senatorial" onclick="applyFilter('faction','Senatorial')">Senatorial</button>
+    <button class="filter-btn btn-independent" onclick="applyFilter('faction','Independent')">Independent</button>
+    <div class="filter-section-label" style="margin-top:10px">Social Groups</div>
+    <button class="filter-btn btn-group" onclick="applyFilter('group','elders')">Elder Matrons</button>
+    <button class="filter-btn btn-group" onclick="applyFilter('group','young')">Young Brides &amp; Maidens</button>
+    <button class="filter-btn btn-group" onclick="applyFilter('group','hate_cicero')">Women Who Hate Cicero</button>
+    <button class="filter-btn btn-group" onclick="applyFilter('group','fun')">Just Want to Have Fun</button>
+    <button class="filter-btn btn-group" onclick="applyFilter('group','less_elite')">Less-Elite Women</button>
+    <button class="filter-btn btn-group" onclick="applyFilter('group','messy_family')">Messy Family</button>
+    <div class="filter-section-label" style="margin-top:10px">Civil Wars Survived</div>
+    <button class="filter-btn btn-wars" onclick="applyFilter('wars',6)">6 Wars (Veterans Only)</button>
+    <button class="filter-btn btn-wars" onclick="applyFilter('wars',5)">5+ Wars</button>
+    <button class="filter-btn btn-wars" onclick="applyFilter('wars',4)">4+ Wars</button>
+    <button class="filter-btn btn-wars" onclick="applyFilter('wars',3)">3+ Wars</button>
+    <button class="filter-btn btn-wars" onclick="applyFilter('wars',2)">2+ Wars (All Women)</button>
+</div></div>
+<div id="legend">
+    <div class="leg-title">Factiones</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#8b2020"></div><span class="leg-label">Triumviral Women</span></div>
+    <div class="leg-row"><div class="leg-dot" style="background:#1a4470"></div><span class="leg-label">Senatorial Women</span></div>
+    <div class="leg-row"><div class="leg-dot" style="background:#1e5d3a"></div><span class="leg-label">Independent Women</span></div>
+    <div class="leg-row"><div class="leg-dot" style="background:rgba(140,125,100,.4);border:1px solid rgba(140,125,100,.6)"></div><span class="leg-label">Men (political anchors)</span></div>
+    <hr><small>Node size reflects connections.<br>Click any figure for her dossier.<br>Dashed lines = informal ties.</small>
+</div>
+<div id="details-panel">
+    <div class="close-btn" onclick="document.getElementById('details-panel').style.display='none'">&#215;</div>
+    <h2 id="name-label">NOMEN</h2><div id="role-label"></div>
+    <div style="text-align:center;margin-bottom:16px"><span class="faction-badge" id="faction-badge"></span></div>
+    <div class="stat-line"><span class="stat-label">Assets</span><span class="stat-val" id="wealth-val">-</span></div>
+    <div class="stat-line"><span class="stat-label">Connections</span><span class="stat-val" id="conn-val">-</span></div>
+    <div class="stat-line"><span class="stat-label">Age</span><span class="stat-val" id="age-val">-</span></div>
+    <div class="stat-line"><span class="stat-label">Civil Wars</span><span class="stat-val" id="wars-val">-</span></div>
+    <div class="bio-box" id="bio-text"></div>
+    <div class="connections-list" id="conn-list"></div>
+</div>
+<script>
+const W={
+fulvia:{l:"FULVIA",f:"Triumviral",w:"8,000,000",a:"38",wars:4,r:"Wife of Marcus Antonius",b:"The most powerful woman in Rome. Widow of Clodius and Curio before marrying Antonius, she controls urban gangs, vast wealth, and the ear of the most powerful triumvir. The women's tax was her idea \u2014 a weapon against her Senatorial enemies."},
+claudia:{l:"CLAUDIA",f:"Triumviral",w:"3,000,000",a:"15",wars:2,r:"Wife of Octavian, Daughter of Fulvia",b:"A 15-year-old bride caught between her mother Fulvia's fury and her husband Octavian's cold ambition. A political marriage binding two triumvirs, built on mutual distrust."},
+junia_secunda:{l:"JUNIA\nSECUNDA",f:"Triumviral",w:"5,000,000",a:"~35",wars:4,r:"Wife of Lepidus, Daughter of Servilia",b:"Torn between her husband the triumvir Lepidus and her half-brother, the assassin Brutus. Her mother Servilia and sister Junia Tertia are fiercely pro-Senatorial."},
+julia_antonia:{l:"JULIA\nANTONIA",f:"Triumviral",w:"50,000",a:"62",wars:6,r:"Mother of Marcus Antonius",b:"A brave, hot-tempered widow sheltering her proscribed brother in her home. Comparatively poor but fiercely protective. She despises her son's mistress Cytheris and fears Fulvia's recklessness."},
+octavia_minor:{l:"OCTAVIA\nMINOR",f:"Triumviral",w:"300,000",a:"27",wars:3,r:"Sister of Octavian",b:"The ideal Roman matron \u2014 devoted wife, mother, and sister. Thrust from obscurity into the center of power by her brother's ambition. She seeks peaceful compromise across all factions."},
+octavia_elder:{l:"OCTAVIA\nELDER",f:"Triumviral",w:"200,000",a:"29",wars:3,r:"Elder Half-Sister of Octavian",b:"Raised quietly in the Italian countryside, she resents being dragged into politics by her half-brother's seizure of power."},
+volumnia_cytheris:{l:"VOLUMNIA\nCYTHERIS",f:"Triumviral",w:"500,000",a:"~32",wars:4,r:"Courtesan, 'Ex'-Mistress of Antonius",b:"A freedwoman actress and elite courtesan who earned her fortune through talent and shrewd patrons. Hated by Fulvia and Julia Antonia, beloved by poets. She already pays taxes as a sex worker."},
+sempronia:{l:"SEMPRONIA",f:"Triumviral",w:"700,000",a:"~65",wars:6,r:"Widow of D. Junius Brutus, Aunt of Fulvia",b:"An elder stateswoman who once conspired with Catiline and was formerly Caesar's mistress. Fulvia's aunt. Her past intimacy with Caesar is a source of friction with Fulvia."},
+volusia:{l:"VOLUSIA",f:"Triumviral",w:"2,000,000",a:"~22",wars:2,r:"Wife of Consul Plancus",b:"Young wife of the consul, she secretly smuggled her own brother out of Rome disguised as a priest of Isis after her cowardly husband offered him up for proscription."},
+antonia_prima:{l:"ANTONIA\nPRIMA",f:"Triumviral",w:"800,000",a:"16",wars:2,r:"Daughter of Antonius and Antonia Hybrida",b:"The 16-year-old daughter of Antonius by his ex-wife Antonia Hybrida. She lives with her father and stepmother Fulvia, who terrifies her. Engaged to Lepidus Minor, she is an unwilling pawn caught between Fulvia and Servilia's machinations."},
+appuleia:{l:"APPULEIA",f:"Triumviral",w:"500,000",a:"~60",wars:6,r:"Mother of Lepidus, Scandalously Divorced",b:"Lepidus's elderly mother, divorced long ago under scandalous circumstances. Despite her age and disgrace, she retains influence through her son the triumvir."},
+hortensia:{l:"HORTENSIA",f:"Independent",w:"1,500,000",a:"~42",wars:5,r:"Widow, Daughter of the Orator Hortensius",b:"A gifted orator trained by her famous father, she called this meeting of the Ordo Matronarum. Childless, wealthy, and independent, she leads the fight against the tax \u2014 demanding rights if the triumvirs insist on responsibilities."},
+terentia:{l:"TERENTIA",f:"Independent",w:"800,000",a:"56",wars:6,r:"Ex-Wife of Cicero",b:"Once one of Rome's wealthiest women, betrayed by her husband of 33 years who divorced her by letter for a teenager. Fulvia desecrated Cicero's corpse. Terentia wants justice \u2014 and to see Fulvia humiliated."},
+pomponia:{l:"POMPONIA\nATTICA",f:"Independent",w:"500,000",a:"52",wars:6,r:"Widow of Quintus Cicero",b:"Sister of the publisher Atticus, forced into a miserable marriage she endured for 24 years. Her beloved son Quintus was murdered by the triumvirs' agents."},
+publilia:{l:"PUBLILIA",f:"Independent",w:"500,000",a:"~20",wars:2,r:"Second Ex-Wife of Cicero",b:"Cicero's young ward whom he married for her money, then ignored. Her wealth was managed by Terentia, her former foster-mother \u2014 an awkward connection that persists."},
+clodia_metelli:{l:"CLODIA\nMETELLI",f:"Independent",w:"2,000,000",a:"55",wars:6,r:"Widow of Metellus Celer",b:"The legendary 'Lesbia' of Catullus \u2014 lover of poets, accused poisoner, sister of Fulvia's first husband Clodius. She cares only for peace and pleasure."},
+fabia:{l:"FABIA",f:"Independent",w:"1,500,000",a:"~58",wars:5,r:"Retired Vestal Virgin, Sister of Terentia",b:"As a Vestal she uniquely controlled her own property with full legal rights. Now retired, she brings religious authority and moral weight to the protest."},
+tertulla:{l:"TERTULLA",f:"Independent",w:"6,000,000",a:"~60",wars:6,r:"Widow of M. Licinius Crassus",b:"Widow of the fabulously wealthy Crassus, she commands an enormous fortune. Her husband's defeat and death at Carrhae left her the richest widow in Rome."},
+metella_celer:{l:"METELLA\nCELER",f:"Independent",w:"500,000",a:"28",wars:3,r:"Daughter of Clodia Metelli",b:"Recently returned to her mother's household after a scandalous divorce for adultery. Like her mother, she is unapologetic. Her affair with Dolabella is an open secret."},
+maesia:{l:"MAESIA OF\nSENTINUM",f:"Independent",w:"1,000,000",a:"~50",wars:4,r:"Italian Matron, Legal Advocate",b:"Called 'Androgyne' for her ability to argue in legal forums like a man. An Italian woman whose family gained citizenship in the Social War."},
+mucia_tertia:{l:"MUCIA\nTERTIA",f:"Independent",w:"3,000,000",a:"~50",wars:6,r:"Ex-Wife of Pompey the Great",b:"Divorced by Pompey for alleged adultery, she has vast diplomatic connections. Her sons by Pompey command forces of their own. Mother of Pompeia Magna."},
+sassia:{l:"SASSIA",f:"Independent",w:"1,500,000",a:"~60",wars:6,r:"Wealthy Matron from Larinum",b:"A wealthy Italian woman, central to Cicero's notorious 'Pro Cluentio.' Accused of multiple poisonings. She has direct experience with the darker arts of Roman politics."},
+scribonia:{l:"SCRIBONIA",f:"Independent",w:"500,000",a:"28",wars:3,r:"Well-Connected Matron, Pompeian Ties",b:"A twice-married noblewoman deeply connected to the Pompeius family. She despises being used as a pawn by male relatives and wants the right to stay in her own happy marriage. She shares a loose familial tie with the young Livia Drusilla through adoption networks."},
+calpurnia:{l:"CALPURNIA",f:"Independent",w:"4,000,000",a:"34",wars:4,r:"Widow of Julius Caesar",b:"Caesar's widow. He was never a great husband \u2014 25 years older and constantly at war, not to mention bringing Cleopatra to Rome \u2014 but she enjoyed the status. After his assassination, she gave his papers to Antonius and retreated from politics. She wants nothing more than to be left alone with her wealth."},
+pompeia_magna:{l:"POMPEIA\nMAGNA",f:"Independent",w:"1,500,000",a:"33",wars:4,r:"Daughter of Pompey the Great",b:"Daughter of Pompey and Mucia Tertia, she begged her father to let her marry for love. After her first husband died fighting Caesar, she remarried \u2014 but her new husband foolishly joined Brutus and Cassius, leaving her stranded again. Her brothers command independent fleets."},
+caecilia_cretica:{l:"CAECILIA\nMETELLA CRETICA",f:"Independent",w:"3,000,000",a:"38",wars:5,r:"Widow of M. Licinius Crassus Minor",b:"Daughter of the conservative Metellus Creticus and widow of the younger Crassus. Extremely wealthy, she is convinced death is near and wants to build the most spectacular tomb in Rome on the Appian Way as her eternal legacy."},
+servilia:{l:"SERVILIA",f:"Senatorial",w:"6,000,000",a:"~62",wars:6,r:"Mother of Brutus, Former Mistress of Caesar",b:"The great matriarch. Caesar's lover for twenty years, mother of his assassin, she helped plan the Ides of March. One of the wealthiest and most connected women alive. Her three daughters each married into a different faction."},
+junia_tertia:{l:"JUNIA\nTERTIA",f:"Senatorial",w:"3,500,000",a:"~30",wars:4,r:"Wife of Cassius, Daughter of Servilia",b:"Wife of the assassin Cassius and possibly Caesar's own daughter. Her husband stripped her dowry to fund his legions. Famous for her longevity \u2014 she will outlive every regime."},
+junia_prima:{l:"JUNIA\nPRIMA",f:"Senatorial",w:"4,000,000",a:"~38",wars:4,r:"Wife of P. Servilius Isauricus, Daughter of Servilia",b:"Eldest daughter of Servilia with divided loyalties. The broken betrothal of her daughter Servilia Vatia to Octavian has filled her with resentment."},
+porcia:{l:"PORCIA",f:"Senatorial",w:"100,000",a:"~28",wars:4,r:"Wife of Brutus, Daughter of Cato",b:"Fiercely committed to the Republican cause, she famously stabbed herself in the thigh to prove she could keep a secret. Nearly destitute \u2014 her husband took everything for the war."},
+marcia:{l:"MARCIA",f:"Senatorial",w:"4,500,000",a:"~55",wars:4,r:"Wife of Cato (deceased)",b:"Cato's devoted widow, inheritor of the great orator Hortensius's fortune. She was famously 'loaned' to Hortensius and returned to Cato \u2014 a transaction that scandalized even Rome."},
+curia:{l:"CURIA",f:"Senatorial",w:"30,000",a:"~30",wars:3,r:"'Widow' of Q. Lucretius Vespillo",b:"Her parents were murdered in an earlier civil war. She secretly smuggled her proscribed husband out of Rome. She lives on borrowed credit."},
+servilia_vatia:{l:"SERVILIA\nVATIA",f:"Senatorial",w:"2,000,000",a:"~15",wars:2,r:"Daughter of Junia Prima, Granddaughter of Servilia",b:"Humiliated when Octavian broke their betrothal to marry Fulvia's daughter Claudia instead. Now a rival candidate for Lepidus Minor's hand against Antonia Prima."},
+livia_drusilla:{l:"LIVIA\nDRUSILLA",f:"Senatorial",w:"2,000,000",a:"17",wars:2,r:"Wife of Tiberius Claudius Nero",b:"At just 17, newly pregnant and already alone \u2014 her father and husband have fled to fight with Brutus and Cassius. Ruthless, brilliant, and beautiful, she will one day become the most powerful woman Rome has ever known."},
+antonia_hybrida:{l:"ANTONIA\nHYBRIDA",f:"Senatorial",w:"500,000",a:"32",wars:4,r:"Ex-Wife of Marcus Antonius",b:"Divorced by Antonius on trumped-up adultery charges with Dolabella so he could marry Fulvia. He kept her dowry and her daughter. She was innocent \u2014 she's not even especially attracted to men \u2014 but her reputation was ruined. She wants revenge on both Antonius and Fulvia."}
+};
+
+const men = {
+    antony:  {l:"M. ANTONIUS",s:"alive"},
+    octavian:{l:"OCTAVIANUS",s:"alive"},
+    lepidus: {l:"M. AEMILIUS\nLEPIDUS",s:"alive"},
+    lepidus_minor:{l:"LEPIDUS\nMINOR",s:"alive"},
+    brutus:  {l:"M. JUNIUS\nBRUTUS",s:"alive"},
+    cassius: {l:"G. CASSIUS\nLONGINUS",s:"alive"},
+    plancus: {l:"L. MUNATIUS\nPLANCUS",s:"alive"},
+    dolabella:{l:"P. CORNELIUS\nDOLABELLA",s:"alive"},
+    cicero:  {l:"M. TULLIUS\nCICERO \u271D",s:"dead"},
+    cato:    {l:"M. PORCIUS\nCATO \u271D",s:"dead"},
+    caesar:  {l:"C. JULIUS\nCAESAR \u271D",s:"dead"}
+};
+
+const rawEdges = [
+    // SERVILIA'S WEB
+    {from:"servilia",to:"brutus",label:"Mother\u2013Son"},
+    {from:"servilia",to:"junia_prima",label:"Mother\u2013Daughter"},
+    {from:"servilia",to:"junia_secunda",label:"Mother\u2013Daughter"},
+    {from:"servilia",to:"junia_tertia",label:"Mother\u2013Daughter"},
+    {from:"servilia",to:"caesar",label:"Mistress",dashes:true},
+    {from:"servilia",to:"marcia",label:"Sisters-in-Law"},
+    {from:"servilia",to:"porcia",label:"Mother-in-Law"},
+    {from:"servilia",to:"hortensia",label:"Ex-Sisters-in-Law"},
+    // MARRIAGES
+    {from:"brutus",to:"porcia",label:"Spouse"},
+    {from:"cassius",to:"junia_tertia",label:"Spouse"},
+    {from:"lepidus",to:"junia_secunda",label:"Spouse"},
+    {from:"antony",to:"fulvia",label:"Spouse"},
+    {from:"octavian",to:"claudia",label:"Spouse"},
+    {from:"cato",to:"marcia",label:"Spouse"},
+    {from:"cato",to:"porcia",label:"Father\u2013Daughter"},
+    // SIBLINGS
+    {from:"brutus",to:"junia_prima",label:"Half-Siblings"},
+    {from:"brutus",to:"junia_secunda",label:"Half-Siblings"},
+    {from:"brutus",to:"junia_tertia",label:"Half-Siblings"},
+    {from:"brutus",to:"cassius",label:"Brothers-in-Law"},
+    {from:"octavian",to:"octavia_minor",label:"Siblings"},
+    {from:"octavian",to:"octavia_elder",label:"Half-Siblings"},
+    {from:"octavia_minor",to:"octavia_elder",label:"Half-Sisters"},
+    {from:"terentia",to:"fabia",label:"Sisters"},
+    // TRIUMVIRAL FAMILY
+    {from:"julia_antonia",to:"antony",label:"Mother\u2013Son"},
+    {from:"julia_antonia",to:"fulvia",label:"In-Laws"},
+    {from:"fulvia",to:"claudia",label:"Mother\u2013Daughter"},
+    {from:"fulvia",to:"sempronia",label:"Niece\u2013Aunt"},
+    {from:"volusia",to:"plancus",label:"Spouse"},
+    {from:"appuleia",to:"lepidus",label:"Mother\u2013Son"},
+    {from:"appuleia",to:"junia_secunda",label:"In-Laws"},
+    // SEMPRONIA & CAESAR
+    {from:"sempronia",to:"caesar",label:"Ex-Mistress",dashes:true},
+    {from:"sempronia",to:"fulvia",label:"Rivalry",dashes:[8,4]},
+    // CICERO'S ORBIT
+    {from:"cicero",to:"terentia",label:"Ex-Spouse"},
+    {from:"cicero",to:"publilia",label:"Ex-Spouse"},
+    {from:"pomponia",to:"cicero",label:"In-Laws"},
+    {from:"terentia",to:"publilia",label:"Foster-Mother",dashes:true},
+    {from:"pomponia",to:"terentia",label:"Ex-Sisters-in-Law"},
+    // DOLABELLA
+    {from:"dolabella",to:"terentia",label:"Ex-Son-in-Law"},
+    {from:"dolabella",to:"fabia",label:"Ex-Brother-in-Law"},
+    {from:"dolabella",to:"metella_celer",label:"Lover",dashes:true},
+    {from:"dolabella",to:"antonia_hybrida",label:"Alleged Lover",dashes:true},
+    // MISTRESSES & INFORMAL
+    {from:"antony",to:"volumnia_cytheris",label:"Mistress",dashes:true},
+    {from:"brutus",to:"volumnia_cytheris",label:"Ex-Client",dashes:true},
+    {from:"clodia_metelli",to:"volumnia_cytheris",label:"Friends",dashes:true},
+    {from:"clodia_metelli",to:"metella_celer",label:"Mother\u2013Daughter"},
+    {from:"clodia_metelli",to:"fulvia",label:"Former Sisters-in-Law"},
+    // GENERATIONAL
+    {from:"junia_prima",to:"servilia_vatia",label:"Mother\u2013Daughter"},
+    {from:"servilia_vatia",to:"claudia",label:"Rivalry",dashes:[8,4]},
+    // MATRONAL PROTEST
+    {from:"hortensia",to:"marcia",label:"Ex-Stepmother",dashes:true},
+    {from:"hortensia",to:"porcia",label:"Ex-Stepsisters",dashes:true},
+    {from:"hortensia",to:"maesia",label:"Legal Allies",dashes:true},
+    // MUCIA
+    {from:"mucia_tertia",to:"servilia",label:"Old Rivals",dashes:true},
+    // LIVIA & SCRIBONIA
+    {from:"livia_drusilla",to:"scribonia",label:"Familial Connection",dashes:true},
+    {from:"scribonia",to:"mucia_tertia",label:"Pompeian Ties",dashes:true},
+    // LEPIDUS MINOR BETROTHALS
+    {from:"antonia_prima",to:"antony",label:"Father\u2013Daughter"},
+    {from:"antonia_prima",to:"lepidus_minor",label:"Proposed Engagement",dashes:true},
+    {from:"antonia_prima",to:"servilia_vatia",label:"Rival Betrothal",dashes:[8,4]},
+    {from:"servilia_vatia",to:"lepidus_minor",label:"Proposed Engagement",dashes:true},
+    {from:"servilia_vatia",to:"octavian",label:"Broken Engagement",dashes:[8,4]},
+    {from:"lepidus_minor",to:"lepidus",label:"Father\u2013Son"},
+    {from:"lepidus_minor",to:"junia_secunda",label:"Mother\u2013Son"},
+    // ANTONIA HYBRIDA
+    {from:"antonia_hybrida",to:"antony",label:"Ex-Spouse"},
+    {from:"antonia_hybrida",to:"antonia_prima",label:"Mother\u2013Daughter"},
+    {from:"antonia_hybrida",to:"julia_antonia",label:"Ex-In-Laws"},
+    {from:"antonia_hybrida",to:"fulvia",label:"Bitter Rivalry",dashes:[8,4]},
+    {from:"antonia_hybrida",to:"volumnia_cytheris",label:"Friends",dashes:true},
+    // CALPURNIA
+    {from:"calpurnia",to:"caesar",label:"Widow"},
+    {from:"calpurnia",to:"servilia",label:"Rivals via Caesar",dashes:true},
+    // POMPEIA MAGNA
+    {from:"pompeia_magna",to:"mucia_tertia",label:"Mother\u2013Daughter"},
+    {from:"pompeia_magna",to:"hortensia",label:"Friends",dashes:true},
+    {from:"pompeia_magna",to:"scribonia",label:"Pompeian Ties",dashes:true},
+    // CAECILIA CRETICA
+    {from:"caecilia_cretica",to:"tertulla",label:"In-Laws (Crassus family)"},
+    // ANTONIA PRIMA - STEPFAMILY
+    {from:"antonia_prima",to:"fulvia",label:"Stepdaughter"},
+    {from:"antonia_prima",to:"claudia",label:"Stepsisters"},
+];
+
+// SOCIAL GROUPS
+const socialGroups = {
+    elders:["sassia","tertulla","julia_antonia","sempronia","servilia","terentia","fabia","clodia_metelli","mucia_tertia","pomponia","appuleia"],
+    young:["volusia","servilia_vatia","publilia","livia_drusilla","antonia_prima","claudia"],
+    hate_cicero:["terentia","publilia","pomponia","clodia_metelli","fulvia","sassia"],
+    fun:["sempronia","sassia","clodia_metelli","metella_celer","fulvia","volumnia_cytheris"],
+    less_elite:["maesia","sassia","octavia_elder","volumnia_cytheris","curia"],
+    messy_family:["marcia","porcia","hortensia","servilia","junia_prima","junia_secunda","junia_tertia"]
+};
+
+// COMPUTED
+const connCount={};
+rawEdges.forEach(e=>{connCount[e.from]=(connCount[e.from]||0)+1;connCount[e.to]=(connCount[e.to]||0)+1});
+const adjacency={};
+rawEdges.forEach(e=>{
+    if(!adjacency[e.from])adjacency[e.from]=[];
+    if(!adjacency[e.to])adjacency[e.to]=[];
+    adjacency[e.from].push({target:e.to,label:e.label});
+    adjacency[e.to].push({target:e.from,label:e.label});
+});
+
+const fc={
+    "Triumviral":{bg:"#8b2020",border:"#cc4444",hl:"#dd5555",font:"#4a0e0e"},
+    "Senatorial":{bg:"#1a4470",border:"#4477bb",hl:"#5588cc",font:"#1a1040"},
+    "Independent":{bg:"#1e5d3a",border:"#44aa66",hl:"#55bb77",font:"#1a3020"}
+};
+const mA={bg:"rgba(160,145,120,.45)",border:"rgba(140,125,100,.6)",hl:"rgba(160,145,120,.65)",font:"#6a5e4e"};
+const mD={bg:"rgba(160,150,135,.3)",border:"rgba(140,130,115,.4)",hl:"rgba(160,150,135,.45)",font:"#9a9080"};
+
+const allND=[];
+Object.keys(W).forEach(id=>{
+    const w=W[id],c=fc[w.f],n=connCount[id]||1;
+    allND.push({id,label:w.l,faction:w.f,isMale:false,value:n*12,
+        title:w.l.replace(/\n/g,' ')+' \u00B7 '+w.f+' \u00B7 '+w.w+' HS',
+        font:{face:'Cinzel',size:13,color:c.font,strokeWidth:0,multi:'md'},
+        color:{background:c.bg,border:c.border,highlight:{background:c.hl,border:c.border},hover:{background:c.hl,border:c.border}},
+        borderWidth:2,borderWidthSelected:3,shadow:{enabled:true,color:'rgba(0,0,0,.1)',size:10,x:0,y:2}});
+});
+Object.keys(men).forEach(id=>{
+    const m=men[id],c=m.s==="dead"?mD:mA,n=connCount[id]||1;
+    allND.push({id,label:m.l,faction:"men",isMale:true,value:n*7,
+        title:m.l.replace(/\n/g,' ')+(m.s==="dead"?" (Deceased)":""),
+        font:{face:'Cormorant Garamond',size:11,color:c.font,strokeWidth:0,multi:'md'},
+        color:{background:c.bg,border:c.border,highlight:{background:c.hl,border:c.border},hover:{background:c.hl,border:c.border}},
+        borderWidth:1,borderWidthSelected:2,shadow:{enabled:true,color:'rgba(0,0,0,.05)',size:5,x:0,y:1},opacity:.7});
+});
+
+const nodes=new vis.DataSet(allND);
+const allED=rawEdges.map((e,i)=>({...e,id:'e'+i,
+    color:{color:e.dashes?'rgba(120,105,80,.25)':'rgba(120,105,80,.4)',highlight:'rgba(122,26,26,.6)',hover:'rgba(120,105,80,.55)'},
+    font:{size:10,face:'Cormorant Garamond',color:'rgba(100,88,70,.7)',align:'middle',strokeWidth:0},
+    width:e.dashes?1:1.5,smooth:{type:'continuous'},hoverWidth:.5,selectionWidth:1}));
+const edges=new vis.DataSet(allED);
+
+const network=new vis.Network(document.getElementById('network-container'),{nodes,edges},{
+    nodes:{shape:'dot',scaling:{min:12,max:52,label:{enabled:true,min:10,max:15}}},
+    edges:{smooth:{type:'continuous'}},
+    physics:{barnesHut:{gravitationalConstant:-25000,centralGravity:.2,springLength:240,springConstant:.018,damping:.3},stabilization:{iterations:350}},
+    interaction:{hover:true,tooltipDelay:200,zoomView:true,dragView:true}
+});
+
+function applyFilter(type,value){
+    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+    event.target.classList.add('active');
+    if(type==='faction'&&value==='all'){
+        allND.forEach(nd=>nodes.update({id:nd.id,hidden:false,opacity:nd.isMale?.7:1}));
+        allED.forEach(ed=>edges.update({id:ed.id,hidden:false}));return;
+    }
+    let tw;
+    if(type==='faction')tw=new Set(allND.filter(n=>n.faction===value).map(n=>n.id));
+    else if(type==='group')tw=new Set(socialGroups[value]||[]);
+    else if(type==='wars')tw=new Set(Object.keys(W).filter(id=>W[id].wars>=value));
+    const cm=new Set(),co=new Set();
+    allED.forEach(ed=>{
+        if(tw.has(ed.from)){if(men[ed.to])cm.add(ed.to);else co.add(ed.to)}
+        if(tw.has(ed.to)){if(men[ed.from])cm.add(ed.from);else co.add(ed.from)}
+    });
+    const pr=new Set([...tw,...cm]);
+    allND.forEach(nd=>{
+        if(pr.has(nd.id))nodes.update({id:nd.id,hidden:false,opacity:nd.isMale?.45:1});
+        else if(co.has(nd.id))nodes.update({id:nd.id,hidden:false,opacity:.25});
+        else nodes.update({id:nd.id,hidden:true});
+    });
+    allED.forEach(ed=>{
+        const bv=(pr.has(ed.from)||co.has(ed.from))&&(pr.has(ed.to)||co.has(ed.to));
+        const a1=tw.has(ed.from)||tw.has(ed.to);
+        edges.update({id:ed.id,hidden:!(bv&&a1)});
+    });
+}
+
+network.on("click",function(params){
+    if(!params.nodes.length)return;
+    const id=params.nodes[0],w=W[id],panel=document.getElementById('details-panel');
+    if(!w){
+        const m=men[id];if(!m)return;
+        document.getElementById('name-label').innerText=m.l.replace(/\n/g,' ');
+        document.getElementById('role-label').innerText=m.s==='dead'?'Deceased':'Political Figure';
+        const b=document.getElementById('faction-badge');b.innerText='Political Anchor';b.className='faction-badge';
+        b.style.cssText='color:#8a7e6a;border-color:rgba(140,125,100,.4);background:rgba(140,125,100,.06)';
+        document.getElementById('wealth-val').innerText='\u2014';
+        document.getElementById('conn-val').innerText=connCount[id]||0;
+        document.getElementById('age-val').innerText='\u2014';
+        document.getElementById('wars-val').innerText='\u2014';
+        document.getElementById('bio-text').innerText='A critical political figure whose legacy and alliances shape the social landscape of the matrons around him.';
+        buildCL(id);panel.style.display='block';return;
+    }
+    document.getElementById('name-label').innerText=w.l.replace(/\n/g,' ');
+    document.getElementById('role-label').innerText=w.r;
+    const b=document.getElementById('faction-badge');b.innerText=w.f;b.className='faction-badge faction-'+w.f.toLowerCase();b.style.cssText='';
+    document.getElementById('wealth-val').innerText=w.w+' HS';
+    document.getElementById('conn-val').innerText=connCount[id]||0;
+    document.getElementById('age-val').innerText=w.a;
+    document.getElementById('wars-val').innerText=w.wars+(w.wars===6?' (all)':'');
+    document.getElementById('bio-text').innerText=w.b;
+    buildCL(id);panel.style.display='block';
+});
+
+function buildCL(id){
+    const c=document.getElementById('conn-list'),adj=adjacency[id]||[];
+    if(!adj.length){c.innerHTML='';return}
+    let h='<h3>Connections</h3>';
+    adj.forEach(a=>{const td=W[a.target]||men[a.target];const nm=td?(td.l||td.label||'').replace(/\n/g,' '):a.target;
+        h+='<div class="conn-item"><span>'+nm+'</span> \u2014 '+a.label+'</div>'});
+    c.innerHTML=h;
+}
+</script>
+</body>
+</html>
